@@ -20,11 +20,10 @@ logger.addHandler(ch)
 
 
 def set_loglevel(level: str):
-  l = getattr(logging, level.upper())
-  logger.setLevel(l)
+    l = getattr(logging, level.upper())
+    logger.setLevel(l)
+
 
 if __name__ == "__main__":
-  logger.info('info')
-  logger.debug('debug')
-
-
+    logger.info('info')
+    logger.debug('debug')

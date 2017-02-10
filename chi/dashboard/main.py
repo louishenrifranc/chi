@@ -14,80 +14,79 @@ import signal
 
 @chi.app
 def dashboard(host='127.0.0.1', port=5000, loglevel='debug'):
-  chi.set_loglevel(loglevel)
+    chi.set_loglevel(loglevel)
 
-  if port == 0:
-    port = get_free_port(host)
-  else:
-    solo = False
-    while not solo:
-      pid = port2pid(port)
-      if pid:
-        os.kill(pid[0], signal.SIGTERM)
-        logger.info('restarting chiboard')
-      else:
-        solo = True
-      # TODO: timeout
-
-  p = os.path.dirname(os.path.realpath(__file__))
-  app = Flask(__name__, root_path=p, static_url_path='/')
-
-
-  server = Server(host, port)
-
-  remotes = {}  # spin up all ssh servers in a config
-
-  @app.route("/")
-  def index():
-    return send_file("components/index.html")
-
-  @app.route('/bower_components/<path:path>')
-  def bower(path):
-    return send_from_directory('bower_components', path)
-
-  @app.route('/components/<path:path>')
-  def comp(path):
-    return send_from_directory('components', path)
-
-  @app.route("/exp/")
-  def exp():
-    return send_file("components/experiment.html")
-
-  @app.route("/info/<string:host>/<path:path>")  # experiment page
-  def info(host, path):
-    if host == 'local':
-      return jsonify(server.info('/'+path))
+    if port == 0:
+        port = get_free_port(host)
     else:
-      raise Exception('Remote not yet supported')
-      # request remote info
-      # update urls
+        solo = False
+        while not solo:
+            pid = port2pid(port)
+            if pid:
+                os.kill(pid[0], signal.SIGTERM)
+                logger.info('restarting chiboard')
+            else:
+                solo = True
+                # TODO: timeout
 
-  @app.route("/tb/<string:host>/<path:path>")
-  def tb(host, path):
-    if host == 'local':
-      return jsonify(server.tensorboard('/'+path))
-    else:
-      raise Exception('Remote not yet supported')
-      # make local port forward
-      # request remote tensorboard
-      # update urls
+    p = os.path.dirname(os.path.realpath(__file__))
+    app = Flask(__name__, root_path=p, static_url_path='/')
 
-  @app.route("/delete/<path:path>")
-  def delete(path):
-    return jsonify(server.delete('/'+path))
+    server = Server(host, port)
 
-  @app.route("/trend/<path:path>")
-  def trend(path):
-    sio = server.trend('/'+path)
-    return send_file(sio,  attachment_filename='trend.png', mimetype='image/png')
+    remotes = {}  # spin up all ssh servers in a config
 
-  @app.route('/experiments')
-  def experiments():
-    s = server.experiments()
+    @app.route("/")
+    def index():
+        return send_file("components/index.html")
 
-    # add remotes
-    # update their hostids
+    @app.route('/bower_components/<path:path>')
+    def bower(path):
+        return send_from_directory('bower_components', path)
 
-    return jsonify(s)
+    @app.route('/components/<path:path>')
+    def comp(path):
+        return send_from_directory('components', path)
 
-  app.run(host=host, port=port)
+    @app.route("/exp/")
+    def exp():
+        return send_file("components/experiment.html")
+
+    @app.route("/info/<string:host>/<path:path>")  # experiment page
+    def info(host, path):
+        if host == 'local':
+            return jsonify(server.info('/' + path))
+        else:
+            raise Exception('Remote not yet supported')
+            # request remote info
+            # update urls
+
+    @app.route("/tb/<string:host>/<path:path>")
+    def tb(host, path):
+        if host == 'local':
+            return jsonify(server.tensorboard('/' + path))
+        else:
+            raise Exception('Remote not yet supported')
+            # make local port forward
+            # request remote tensorboard
+            # update urls
+
+    @app.route("/delete/<path:path>")
+    def delete(path):
+        return jsonify(server.delete('/' + path))
+
+    @app.route("/trend/<path:path>")
+    def trend(path):
+        sio = server.trend('/' + path)
+        return send_file(sio, attachment_filename='trend.png', mimetype='image/png')
+
+    @app.route('/experiments')
+    def experiments():
+        s = server.experiments()
+
+        # add remotes
+        # update their hostids
+
+        return jsonify(s)
+
+    app.run(host=host, port=port)
