@@ -4,7 +4,7 @@ import argparse
 import tensorflow as tf
 import numpy as np
 
-
+print(tf.__version__)
 class Model:
     def __init__(self, args):
         self.max_sentence_length = args.max_sentence_length  # maximum length for a sentence
@@ -106,7 +106,7 @@ class Model:
         with tf.variable_scope("product_model"):
             # Size: 1 x nb_product_reviews x word_embedding_size
             self.product_reviews = tf.reshape(self.product_reviews, (1, -1, self.embedding_words_dim))
-            cell = tf.contrib.rnn.rnn_cell.LSTMCell(self.hidden_size)
+            cell = tf.contrib.rnn.LSTMCell(self.hidden_size)
             outputs, _ = tf.nn.dynamic_rnn(cell, self.product_reviews)
 
             # TODO it's actually wrong, i just don't know how to return every hidden state step, so i return every output step
@@ -122,7 +122,7 @@ class Model:
             A single vector representing the user
         """
         with tf.variable_scope("user_model"):
-            cell = tf.contrib.rnn.rnn_cell.LSTMCell(self.hidden_size)
+            cell = tf.contrib.rnn.LSTMCell(self.hidden_size)
 
             self.user_reviews = tf.reshape(self.user_reviews, (1, -1, self.embedding_words_dim))
             outputs, _ = tf.nn.dynamic_rnn(cell, self.user_reviews)
