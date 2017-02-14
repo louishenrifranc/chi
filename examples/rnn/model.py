@@ -48,7 +48,7 @@ class Model:
         self.hop_pass(4)
         return self.opininon_rating()
 
-    @define_scope
+    @define_scope()
     def _nn_lookup(self):
         self.product_reviews = tf.nn.embedding_lookup(self.word_embeddings, self.product_reviews)
         self.user_reviews = tf.nn.embedding_lookup(self.word_embeddings, self.user_reviews)
