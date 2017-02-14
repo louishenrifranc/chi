@@ -4,7 +4,9 @@ import argparse
 import tensorflow as tf
 import numpy as np
 
-print(tf.__version__)
+tf.logging.set_verbosity(tf.logging.DEBUG)
+
+
 class Model:
     def __init__(self, args):
         self.max_sentence_length = args.max_sentence_length  # maximum length for a sentence
@@ -23,11 +25,13 @@ class Model:
         self.optimizer = tf.train.AdadeltaOptimizer()
 
         if args.glove_embeddings is not None:
-            self.word_embeddings = tf.Variable(initial_value=args.glove_embeddings, name="word_embedding")
+            self.word_embeddings = tf.Variable(initial_value=args.glove_embeddings, name="word_embedding",
+                                               dtype=tf.float32)
         else:
             self.word_embeddings = tf.Variable(
                 np.random.standard_normal(size=(args.vocab_size, self.embedding_words_dim)),
-                name="word_embedding")
+                name="word_embedding",
+                dtype=tf.float32)
 
         self.optimize()
 
@@ -90,11 +94,10 @@ class Model:
             mean_review = tf.reduce_sum(reviews, axis=1)
 
             mean_review_shape = tf.shape(mean_review)
-
             # Divide the sum of word embedding in a review by the number of word in a review
             # Size: nb_reviews_user x word_embedding_size
-            mean_review /= tf.transpose(tf.reshape(tf.tile(reviews_length, mean_review_shape[1]),
-                                                   (mean_review_shape[1], mean_review_shape[0])))
+            mean_review /= tf.tile(tf.expand_dims(reviews_length, axis=1),
+                                   [1, mean_review_shape[-1]])
             return mean_review
 
     def _product_model(self):
@@ -107,9 +110,8 @@ class Model:
             # Size: 1 x nb_product_reviews x word_embedding_size
             self.product_reviews = tf.reshape(self.product_reviews, (1, -1, self.embedding_words_dim))
             cell = tf.contrib.rnn.LSTMCell(self.hidden_size)
-            outputs, _ = tf.nn.dynamic_rnn(cell, self.product_reviews)
+            outputs, _ = tf.nn.dynamic_rnn(cell, self.product_reviews, dtype=tf.float32)
 
-            # TODO it's actually wrong, i just don't know how to return every hidden state step, so i return every output step
             # Size: nb_product_reviews x hidden_size
             return outputs
 
@@ -125,10 +127,10 @@ class Model:
             cell = tf.contrib.rnn.LSTMCell(self.hidden_size)
 
             self.user_reviews = tf.reshape(self.user_reviews, (1, -1, self.embedding_words_dim))
-            outputs, _ = tf.nn.dynamic_rnn(cell, self.user_reviews)
+            outputs, _ = tf.nn.dynamic_rnn(cell, self.user_reviews, dtype=tf.float32)
 
             outputs = tf.unstack(outputs)
-            assert len(tf.shape(outputs)) == 2, "must check the size of the output of a rnn in tf"
+            # assert len(tf.shape(outputs)) == 2, "must check the size of the output of a rnn in tf"
 
             weighted_sum = layers.fully_connected(outputs, 1, activation_fn=tf.tanh)
             weighted_sum = tf.nn.softmax(weighted_sum, dim=0)
