@@ -12,13 +12,15 @@ class Model:
         self.hidden_size = args.hidden_size  # nb hidden layer
         self.max_nb_reviews = args.max_nb_reviews  # maximum number of reviews for a product or a user in one batch example
 
-        self.user_reviews = tf.placeholder(shape=(-1, self.max_sentence_length),
+        self.user_reviews = tf.placeholder(shape=(None, self.max_sentence_length),
                                            dtype=tf.int32)
-        self.product_reviews = tf.placeholder(shape=(-1, self.max_sentence_length),
+        self.product_reviews = tf.placeholder(shape=(None, self.max_sentence_length),
                                               dtype=tf.int32)
 
-        self.product_reviews_score = tf.placeholder(shape=(-1), dtype=tf.float32)
+        self.product_reviews_score = tf.placeholder(shape=None, dtype=tf.float32)
         self.target_score = tf.placeholder(shape=1, dtype=tf.int32)
+
+        self.optimizer = tf.train.AdadeltaOptimizer()
 
         if args.glove_embeddings is not None:
             self.word_embeddings = tf.Variable(initial_value=args.glove_embeddings, name="word_embedding")
@@ -33,21 +35,28 @@ class Model:
         Main function, do the forward propagation, joining blocks together
         :return:
         """
+        self._nn_lookup()
         self._compute_mask()
 
         self.product_reviews = self._product_model()
 
         self.user_reviews = self._to_sentence_embedding(self.user_reviews, self.nb_reviews_users)
+
+        self.product_reviews = self._to_sentence_embedding(self.product_reviews, self.nb_reviews_product)
         self.product_reviews = self._user_model()
 
         self.hop_pass(4)
         return self.opininon_rating()
 
+    @define_scope
+    def _nn_lookup(self):
+        self.product_reviews = tf.nn.embedding_lookup(self.word_embeddings, self.product_reviews)
+        self.user_reviews = tf.nn.embedding_lookup(self.word_embeddings, self.user_reviews)
+
     @define_scope()
     def optimize(self):
         opinion_rating = self.prediction()
         loss = tf.square(opinion_rating - self.target_score)
-        self.optimizer = tf.train.AdadeltaOptimizer()
         return self.optimizer.minimize(loss)
 
     @define_scope()
@@ -75,8 +84,6 @@ class Model:
         :return:
             Sentence embedding for every reviews
         """
-        # Size: nb_reviews_user x max_sentence_length x word_embedding_size
-        reviews = tf.nn.embedding_lookup(self.word_embeddings, reviews)
         # Size: nb_reviews_user x word_embedding_size
         mean_review = tf.reduce_sum(reviews, axis=1)
 
@@ -95,13 +102,6 @@ class Model:
         :return:
             Word embedding for product embedding
         """
-        # Word index to word embedding
-        # Size: nb_product_reviews x max_sentence_length x word_embedding_size
-        self.product_reviews = tf.nn.embedding_lookup(self.word_embeddings, self.product_reviews)
-
-        # Size: nb_product_reviews x word_embedding_size
-        self.product_reviews = self._to_sentence_embedding(self.product_reviews, self.nb_reviews_product)
-
         # Size: 1 x nb_product_reviews x word_embedding_size
         self.product_reviews = tf.reshape(self.product_reviews, (1, -1, self.embedding_words_dim))
         cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size)
@@ -175,15 +175,19 @@ if __name__ == '__main__':
     parser.add_argument('--embedding_words_dim', type=int, default=28, help='Size of a batch')
     parser.add_argument('--hidden_size', type=int, default=32, help='Size of a batch')
     parser.add_argument('--max_nb_reviews', type=int, default=32, help='Size of a batch')
+    parser.add_argument('--glove_embeddings', type=int, default=None, help='Size of a batch')
+    parser.add_argument('--vocab_size', type=int, default=100, help='Size of a batch')
 
     args, _ = parser.parse_known_args()
 
-    user_reviews = np.random.randint(0, 100, size=(np.random.randint(0, args.max_nb_reviews), args.max_sentence_length))
+    user_reviews = np.random.randint(0, args.vocab_size,
+                                     size=(np.random.randint(0, args.max_nb_reviews), args.max_sentence_length))
     for row in range(user_reviews.shape[0]):
         stop_sentence = np.random.randint(0, args.max_sentence_length)
         user_reviews[row, stop_sentence:] = 0
 
-    prod_review = np.random.randint(0, 100, size=(np.random.randint(0, args.max_nb_reviews), args.max_sentence_length))
+    prod_review = np.random.randint(0, args.vocab_size,
+                                    size=(np.random.randint(0, args.max_nb_reviews), args.max_sentence_length))
     for row in range(prod_review.shape[0]):
         stop_sentence = np.random.randint(0, args.max_sentence_length)
         prod_review[row, stop_sentence:] = 0
